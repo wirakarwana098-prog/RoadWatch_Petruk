@@ -1,0 +1,1 @@
+kode_laporan|catatan|penanggung_jawab|tanggal_rencana|tanggal_selesai|foto_sesudah
