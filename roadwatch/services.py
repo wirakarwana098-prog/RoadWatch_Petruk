@@ -1,166 +1,255 @@
-import random
-import statistics
 from datetime import datetime
 
-from roadwatch.validasi import validasi_laporan, validasi_status
-from roadwatch.storage import (
-    muat_semua_laporan,
+from . import algoritma
+from .storage import (
+    baca_semua_laporan,
     simpan_semua_laporan,
-    tambah_laporan_baris,
-    catat_log_aktivitas,
+    tambah_baris_laporan,
+    baca_semua_tindak_lanjut,
+    tambah_baris_tindak_lanjut,
+    perbarui_baris_tindak_lanjut,
+    catat_log,
 )
-from roadwatch.algoritma import (
-    linear_search,
-    binary_search,
-    selection_sort,
-    insertion_sort,
-    hitung_total_skor_rekursif,
+from .validasi import (
+    validasi_teks,
+    validasi_tingkat,
+    validasi_foto,
+    validasi_tanggal,
+    validasi_password,
 )
 
-BOBOT_KERUSAKAN = {
-    "Ringan": 1,
-    "Sedang": 2,
-    "Berat": 3,
+BOBOT_KERUSAKAN = {"Ringan": 1, "Sedang": 2, "Berat": 3}
+STATUS_VALID = ("Baru", "Terverifikasi", "Dalam Penanganan", "Selesai", "Ditolak")
+TRANSISI_VALID = {
+    "Terverifikasi": ("Dalam Penanganan",),
+    "Dalam Penanganan": ("Selesai",),
 }
 
-hitung_skor_prioritas = lambda tingkat, jumlah_pelapor: BOBOT_KERUSAKAN.get(tingkat, 1) * jumlah_pelapor
+PENGGUNA_AWAL = [
+    {"id": "A001", "nama": "Administrator", "username": "admin", "password": "admin123", "peran": "admin"},
+    {"id": "P001", "nama": "Wira Karwana", "username": "wira", "password": "wira123", "peran": "petugas"},
+]
 
 
-def hitung_total_angka(*args) -> int:
-    total = 0
-    for angka in args:
-        total += angka
-    return total
+def buat_kode_laporan(daftar):
+    urutan = len(daftar) + 1
+    while True:
+        kode = f"RW-{urutan:04d}"
+        if algoritma.linear_search_laporan(daftar, kode) == -1:
+            return kode
+        urutan += 1
 
 
-def filter_laporan_dinamis(daftar_laporan: list, **kwargs) -> list:
-    hasil = list(daftar_laporan)
-    for kunci, nilai in kwargs.items():
-        if nilai:
-            hasil = list(
-                filter(
-                    lambda item, k=kunci, v=str(nilai).strip().lower(): str(item.get(k, "")).lower() == v,
-                    hasil,
-                )
-            )
+def hitung_skor_prioritas(laporan):
+    bobot = BOBOT_KERUSAKAN.get(laporan["tingkat"], 0)
+    return bobot * 10 + laporan["jumlah_pelapor"]
+
+
+def _ganti_laporan(laporan):
+    daftar = baca_semua_laporan()
+    for i in range(len(daftar)):
+        if daftar[i]["kode"] == laporan["kode"]:
+            daftar[i] = laporan
+            break
+    return daftar
+
+
+def tambah_laporan(jalan, kecamatan, tingkat, foto):
+    jalan = validasi_teks(jalan, "Nama jalan")
+    kecamatan = validasi_teks(kecamatan, "Kecamatan")
+    tingkat = validasi_tingkat(tingkat)
+    foto = validasi_foto(foto)
+
+    daftar = baca_semua_laporan()
+    for l in daftar:
+        if l["jalan"].lower() == jalan.lower() and l["kecamatan"].lower() == kecamatan.lower():
+            l["jumlah_pelapor"] += 1
+            simpan_semua_laporan(daftar)
+            catat_log(f"Laporan duplikat lokasi {jalan}, {kecamatan} - pelapor bertambah")
+            return l["kode"]
+
+    laporan = {
+        "kode": buat_kode_laporan(daftar),
+        "jalan": jalan,
+        "kecamatan": kecamatan,
+        "tingkat": tingkat,
+        "status": "Baru",
+        "jumlah_pelapor": 1,
+        "tanggal": datetime.now().strftime("%d-%m-%Y"),
+    }
+    tambah_baris_laporan(laporan)
+    catat_log(f"Laporan baru {laporan['kode']} - {jalan}, {kecamatan}")
+    return laporan["kode"]
+
+
+def cari_laporan(kode, pakai_binary=False):
+    kode = validasi_teks(kode, "Kode laporan")
+    daftar = baca_semua_laporan()
+    if pakai_binary:
+        terurut = algoritma.insertion_sort(daftar, "kode", menurun=False)
+        indeks = algoritma.binary_search_laporan(terurut, kode)
+        return terurut[indeks] if indeks != -1 else None
+    indeks = algoritma.linear_search_laporan(daftar, kode)
+    return daftar[indeks] if indeks != -1 else None
+
+
+def ubah_status(kode, status_baru, peran):
+    laporan = cari_laporan(kode)
+    if laporan is None:
+        raise ValueError("Kode laporan tidak ditemukan.")
+    if peran not in ("petugas", "admin"):
+        raise ValueError("Hanya petugas atau admin yang boleh mengubah status.")
+    if status_baru not in STATUS_VALID:
+        raise ValueError("Status tidak dikenal.")
+    if status_baru not in TRANSISI_VALID.get(laporan["status"], ()):
+        raise ValueError(f"Perubahan status tidak sah: dari {laporan['status']} ke {status_baru}.")
+    laporan["status"] = status_baru
+    simpan_semua_laporan(_ganti_laporan(laporan))
+    catat_log(f"Status {kode} diubah menjadi {status_baru}")
+    return laporan
+
+
+def verifikasi_laporan(kode, valid, peran):
+    laporan = cari_laporan(kode)
+    if laporan is None:
+        raise ValueError("Kode laporan tidak ditemukan.")
+    if peran not in ("petugas", "admin"):
+        raise ValueError("Hanya petugas atau admin yang boleh memverifikasi.")
+    if laporan["status"] != "Baru":
+        raise ValueError(f"Laporan sudah diverifikasi (status: {laporan['status']}).")
+    laporan["status"] = "Terverifikasi" if valid else "Ditolak"
+    simpan_semua_laporan(_ganti_laporan(laporan))
+    catat_log(f"Laporan {kode} {'terverifikasi' if valid else 'ditolak'} oleh {peran}")
+    return laporan
+
+
+def catat_tindak_lanjut(kode, catatan, penanggung_jawab, tanggal_rencana, peran):
+    laporan = cari_laporan(kode)
+    if laporan is None:
+        raise ValueError("Kode laporan tidak ditemukan.")
+    if peran not in ("petugas", "admin"):
+        raise ValueError("Hanya petugas atau admin yang boleh mencatat tindak lanjut.")
+    catatan = validasi_teks(catatan, "Catatan tindakan")
+    penanggung_jawab = validasi_teks(penanggung_jawab, "Penanggung jawab")
+    tanggal_rencana = validasi_tanggal(tanggal_rencana)
+
+    tindak_lanjut = {
+        "kode_laporan": laporan["kode"],
+        "catatan": catatan,
+        "penanggung_jawab": penanggung_jawab,
+        "tanggal_rencana": tanggal_rencana,
+        "tanggal_selesai": "-",
+        "foto_sesudah": "-",
+    }
+    tambah_baris_tindak_lanjut(tindak_lanjut)
+
+    if laporan["status"] == "Terverifikasi":
+        ubah_status(laporan["kode"], "Dalam Penanganan", peran)
+
+    catat_log(f"Tindak lanjut dicatat untuk {laporan['kode']}")
+    return tindak_lanjut
+
+
+def selesaikan_tindak_lanjut(kode, tanggal_selesai, foto_sesudah, peran):
+    laporan = cari_laporan(kode)
+    if laporan is None:
+        raise ValueError("Kode laporan tidak ditemukan.")
+    if peran not in ("petugas", "admin"):
+        raise ValueError("Hanya petugas atau admin yang boleh menandai selesai.")
+    if laporan["status"] != "Dalam Penanganan":
+        raise ValueError("Status Selesai hanya bisa dari Dalam Penanganan.")
+
+    semua = baca_semua_tindak_lanjut()
+    cocok = [t for t in semua if t["kode_laporan"] == laporan["kode"]]
+    if not cocok:
+        raise ValueError("Catat tindak lanjut dulu sebelum menandai selesai.")
+
+    tanggal_selesai = validasi_tanggal(tanggal_selesai)
+    foto_sesudah = validasi_foto(foto_sesudah)
+
+    terbaru = dict(cocok[-1])
+    terbaru["tanggal_selesai"] = tanggal_selesai
+    terbaru["foto_sesudah"] = foto_sesudah
+    if not perbarui_baris_tindak_lanjut(laporan["kode"], len(cocok) - 1, terbaru):
+        raise ValueError("Gagal memperbarui tindak lanjut.")
+
+    ubah_status(laporan["kode"], "Selesai", peran)
+    catat_log(f"Tindak lanjut {laporan['kode']} selesai pada {tanggal_selesai}")
+    return terbaru
+
+
+def riwayat_tindak_lanjut(kode):
+    laporan = cari_laporan(kode)
+    if laporan is None:
+        raise ValueError("Kode laporan tidak ditemukan.")
+    semua = baca_semua_tindak_lanjut()
+    return [t for t in semua if t["kode_laporan"] == laporan["kode"]]
+
+
+def urutkan_prioritas(daftar=None, metode="selection"):
+    daftar = baca_semua_laporan() if daftar is None else daftar
+    diberi_skor = [dict(l, skor=hitung_skor_prioritas(l)) for l in daftar]
+    if metode == "bubble":
+        return algoritma.bubble_sort(diberi_skor, "skor", menurun=True)
+    if metode == "insertion":
+        return algoritma.insertion_sort(diberi_skor, "skor", menurun=True)
+    return algoritma.selection_sort(diberi_skor, "skor", menurun=True)
+
+
+def filter_laporan(*status, **kriteria):
+    daftar = baca_semua_laporan()
+    hasil = daftar
+    if status:
+        hasil = [l for l in hasil if l["status"] in status]
+    for kunci, nilai in kriteria.items():
+        hasil = [l for l in hasil if str(l.get(kunci, "")).lower() == str(nilai).lower()]
     return hasil
 
 
-class PengelolaLaporan:
-    def __init__(self, path_file: str = "data/laporan.txt"):
-        self.path_file = path_file
-        self.daftar_laporan = muat_semua_laporan(path_file=self.path_file)
+def rekap_laporan():
+    daftar = baca_semua_laporan()
+    rekap = {s: 0 for s in STATUS_VALID}
+    for l in daftar:
+        rekap[l["status"]] = rekap.get(l["status"], 0) + 1
+    total = len(daftar)
+    jumlah_selesai = rekap.get("Selesai", 0)
+    persentase = round(jumlah_selesai * 100 / total, 1) if total else 0.0
+    return {
+        "total": total,
+        "rekap_status": rekap,
+        "total_pelapor": algoritma.total_pelapor_rekursif(daftar),
+        "persentase_selesai": persentase,
+    }
 
-    def _buat_kode_unik(self) -> str:
-        while True:
-            kode = f"RW-{random.randint(1000, 9999)}"
-            if self.cari_berdasarkan_kode(kode) is None:
-                return kode
 
-    def buat_atau_gabung_laporan(
-        self, nama_jalan: str, wilayah: str, tingkat_kerusakan: str, foto: str
-    ) -> dict:
-        validasi_laporan(
-            nama_jalan=nama_jalan,
-            wilayah=wilayah,
-            tingkat_kerusakan=tingkat_kerusakan,
-            foto=foto,
-        )
+def ambil_pengguna():
+    return PENGGUNA_AWAL
 
-        for laporan in self.daftar_laporan:
-            lokasi_sama = (
-                laporan["nama_jalan"].strip().lower() == nama_jalan.strip().lower()
-                and laporan["wilayah"].strip().lower() == wilayah.strip().lower()
-            )
-            if lokasi_sama and laporan["status"] not in ("Selesai", "Ditolak"):
-                laporan["jumlah_pelapor"] = hitung_total_angka(laporan["jumlah_pelapor"], 1)
-                if BOBOT_KERUSAKAN[tingkat_kerusakan] > BOBOT_KERUSAKAN[laporan["tingkat_kerusakan"]]:
-                    laporan["tingkat_kerusakan"] = tingkat_kerusakan
-                laporan["skor_prioritas"] = hitung_skor_prioritas(
-                    laporan["tingkat_kerusakan"], laporan["jumlah_pelapor"]
-                )
-                simpan_semua_laporan(daftar_laporan=self.daftar_laporan, path_file=self.path_file)
-                catat_log_aktivitas(f"Laporan ganda digabung ke {laporan['kode_laporan']}")
-                return {
-                    "digabung": True,
-                    "pesan": "Lokasi sudah pernah dilaporkan. Laporan Anda digabung untuk menaikkan prioritas.",
-                    "data": laporan,
-                }
 
-        laporan_baru = {
-            "kode_laporan": self._buat_kode_unik(),
-            "nama_jalan": nama_jalan.strip(),
-            "wilayah": wilayah.strip(),
-            "tingkat_kerusakan": tingkat_kerusakan,
-            "foto": foto.strip(),
-            "status": "Baru",
-            "jumlah_pelapor": 1,
-            "skor_prioritas": hitung_skor_prioritas(tingkat_kerusakan, 1),
-            "tanggal_lapor": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "catatan_tindak_lanjut": "-",
-        }
-        self.daftar_laporan.append(laporan_baru)
-        tambah_laporan_baris(laporan=laporan_baru, path_file=self.path_file)
-        catat_log_aktivitas(f"Laporan baru dibuat: {laporan_baru['kode_laporan']}")
-        return {
-            "digabung": False,
-            "pesan": "Laporan berhasil dikirim. Simpan kode laporan untuk mengecek progres.",
-            "data": laporan_baru,
-        }
+def login(username, password):
+    username = validasi_teks(username, "Username")
+    if not isinstance(password, str) or password == "":
+        raise ValueError("Password tidak boleh kosong.")
+    for pengguna in PENGGUNA_AWAL:
+        if pengguna["username"] == username and pengguna["password"] == password:
+            catat_log(f"Login berhasil: {username}")
+            return pengguna
+    catat_log(f"Login gagal: {username}")
+    return None
 
-    def cari_kata_kunci(self, kata_kunci: str) -> list:
-        return linear_search(data=self.daftar_laporan, kata_kunci=kata_kunci)
 
-    def cari_berdasarkan_kode(self, kode_laporan: str) -> dict | None:
-        data_urut_kode = insertion_sort(
-            data=self.daftar_laporan,
-            key_func=lambda item: item["kode_laporan"],
-            descending=False,
-        )
-        indeks = binary_search(data_terurut=data_urut_kode, kode_target=kode_laporan)
-        if indeks != -1:
-            return data_urut_kode[indeks]
-        return None
-
-    def ambil_laporan_terurut(self, kriteria: str = "prioritas", data_sumber: list = None) -> list:
-        sumber = self.daftar_laporan if data_sumber is None else data_sumber
-        pemilih_kunci = {
-            "prioritas": lambda x: x["skor_prioritas"],
-            "pelapor": lambda x: x["jumlah_pelapor"],
-            "tanggal": lambda x: x["tanggal_lapor"],
-        }.get(kriteria, lambda x: x["skor_prioritas"])
-
-        return selection_sort(data=sumber, key_func=pemilih_kunci, descending=True)
-
-    def perbarui_status_laporan(self, kode_laporan: str, status_baru: str, catatan: str = "-") -> dict:
-        validasi_status(status_baru=status_baru)
-        laporan = self.cari_berdasarkan_kode(kode_laporan=kode_laporan)
-        if laporan is None:
-            raise ValueError(f"Kode laporan '{kode_laporan}' tidak ditemukan.")
-
-        laporan["status"] = status_baru
-        if catatan.strip():
-            laporan["catatan_tindak_lanjut"] = catatan.strip()
-
-        simpan_semua_laporan(daftar_laporan=self.daftar_laporan, path_file=self.path_file)
-        catat_log_aktivitas(f"Status {kode_laporan} diperbarui menjadi {status_baru}")
-        return laporan
-
-    def ringkasan_statistik(self) -> dict:
-        if not self.daftar_laporan:
-            return {
-                "total_laporan": 0,
-                "total_selesai": 0,
-                "total_skor_prioritas": 0,
-                "rata_rata_prioritas": 0.0,
-            }
-
-        daftar_skor = [item["skor_prioritas"] for item in self.daftar_laporan]
-        laporan_selesai = filter_laporan_dinamis(self.daftar_laporan, status="Selesai")
-
-        return {
-            "total_laporan": len(self.daftar_laporan),
-            "total_selesai": len(laporan_selesai),
-            "total_skor_prioritas": hitung_total_skor_rekursif(self.daftar_laporan),
-            "rata_rata_prioritas": round(statistics.mean(daftar_skor), 2),
-        }
+def tambah_pengguna(peran, id_pengguna, nama, username, password):
+    if peran != "admin":
+        raise ValueError("Hanya admin yang boleh menambah pengguna.")
+    username = validasi_teks(username, "Username")
+    password = validasi_password(password)
+    nama = validasi_teks(nama, "Nama")
+    if any(p["username"] == username for p in PENGGUNA_AWAL):
+        raise ValueError("Username sudah dipakai.")
+    if any(p["id"] == id_pengguna for p in PENGGUNA_AWAL):
+        raise ValueError("ID pengguna sudah dipakai.")
+    baru = {"id": id_pengguna, "nama": nama, "username": username,
+            "password": password, "peran": "petugas"}
+    PENGGUNA_AWAL.append(baru)
+    catat_log(f"Petugas baru ditambahkan: {username}")
+    return baru

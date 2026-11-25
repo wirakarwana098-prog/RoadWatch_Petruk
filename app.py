@@ -1,94 +1,182 @@
-from flask import Flask, jsonify, request
-from roadwatch.services import PengelolaLaporan, filter_laporan_dinamis
+from roadwatch import services, storage
+
+PILIHAN_MENU = {
+    "1": "Lapor jalan rusak",
+    "2": "Cek status laporan",
+    "3": "Lihat daftar laporan",
+    "4": "Lihat dashboard",
+    "5": "Login petugas / admin",
+    "0": "Keluar",
+}
 
 
-class AplikasiRoadWatch:
-    def __init__(self, path_file: str = "data/laporan.txt"):
-        self.app = Flask(__name__)
-        self.pengelola = PengelolaLaporan(path_file=path_file)
-        self._isi_data_awal()
-        self._daftarkan_rute()
+def minta_teks(pertanyaan):
+    while True:
+        nilai = input(pertanyaan).strip()
+        if nilai:
+            return nilai
+        print("Input tidak boleh kosong.")
 
-    def _isi_data_awal(self) -> None:
-        if not self.pengelola.daftar_laporan:
-            data_awal = [
-                ("Jl. ZA Pagar Alam", "Kedaton", "Berat", "pagar_alam.jpg"),
-                ("Jl. Teuku Umar", "Kedaton", "Sedang", "teuku_umar.jpg"),
-                ("Jl. Soekarno-Hatta", "Sukarame", "Berat", "bypass.jpg"),
-                ("Jl. Kartini", "Tanjung Karang Pusat", "Ringan", "kartini.jpg"),
-            ]
-            for jalan, wilayah, tingkat, foto in data_awal:
-                self.pengelola.buat_atau_gabung_laporan(
-                    nama_jalan=jalan,
-                    wilayah=wilayah,
-                    tingkat_kerusakan=tingkat,
-                    foto=foto,
-                )
 
-    def _daftarkan_rute(self) -> None:
-        @self.app.route("/api/laporan", methods=["GET"])
-        def menu_daftar_laporan():
-            kata_kunci = request.args.get("q", "")
-            wilayah = request.args.get("wilayah", "")
-            status = request.args.get("status", "")
-            urut = request.args.get("sort_by", "prioritas")
+def menu_utama():
+    while True:
+        print("\n=== ROADWATCH LAMPUNG ===")
+        for kunci, teks in PILIHAN_MENU.items():
+            print(f"{kunci}. {teks}")
+        pilihan = input("Pilih: ").strip()
 
-            if kata_kunci:
-                data = self.pengelola.cari_kata_kunci(kata_kunci=kata_kunci)
-            elif wilayah or status:
-                data = filter_laporan_dinamis(
-                    self.pengelola.daftar_laporan,
-                    wilayah=wilayah,
-                    status=status,
-                )
+        if pilihan == "1":
+            menu_lapor()
+        elif pilihan == "2":
+            menu_cek_status()
+        elif pilihan == "3":
+            menu_daftar_laporan()
+        elif pilihan == "4":
+            menu_dashboard()
+        elif pilihan == "5":
+            menu_login()
+        elif pilihan == "0":
+            print("Terima kasih.")
+            break
+        else:
+            print("Pilihan tidak valid.")
+
+
+def menu_lapor():
+    print("\n--- Lapor jalan rusak ---")
+    try:
+        jalan = minta_teks("Nama jalan        : ")
+        kecamatan = minta_teks("Kecamatan         : ")
+        tingkat = minta_teks("Tingkat (ringan/sedang/berat): ")
+        foto = minta_teks("Nama file foto (.jpg/.png): ")
+        kode = services.tambah_laporan(jalan, kecamatan, tingkat, foto)
+        print(f"Laporan diterima. Kode laporan Anda: {kode}")
+    except ValueError as e:
+        print(f"Gagal: {e}")
+
+
+def menu_cek_status():
+    kode = minta_teks("Masukkan kode laporan: ")
+    laporan = services.cari_laporan(kode)
+    if laporan is None:
+        print("Kode tidak ditemukan.")
+        return
+    print(f"Kode      : {laporan['kode']}")
+    print(f"Jalan     : {laporan['jalan']}")
+    print(f"Kecamatan : {laporan['kecamatan']}")
+    print(f"Tingkat   : {laporan['tingkat']}")
+    print(f"Status    : {laporan['status']}")
+    print(f"Pelapor   : {laporan['jumlah_pelapor']}")
+    riwayat = services.riwayat_tindak_lanjut(kode)
+    if not riwayat:
+        print("Tindak lanjut: belum ada")
+    else:
+        print("Riwayat tindak lanjut:")
+        for i, t in enumerate(riwayat, 1):
+            print(f"  {i}. {t['catatan']} (PJ: {t['penanggung_jawab']})")
+            print(f"     Rencana: {t['tanggal_rencana']} | Selesai: {t['tanggal_selesai']}")
+            print(f"     Foto sesudah: {t['foto_sesudah']}")
+
+
+def menu_daftar_laporan():
+    daftar = services.filter_laporan()
+    if not daftar:
+        print("Belum ada laporan.")
+        return
+    for l in daftar:
+        print(f"{l['kode']} | {l['jalan']} | {l['kecamatan']} | "
+              f"{l['tingkat']} | {l['status']} | pelapor: {l['jumlah_pelapor']}")
+
+
+def menu_dashboard():
+    rekap = services.rekap_laporan()
+    print("\n--- Dashboard RoadWatch Lampung ---")
+    print(f"Total laporan      : {rekap['total']}")
+    for status, jumlah in rekap["rekap_status"].items():
+        print(f"{status:<18} : {jumlah}")
+    print(f"Total pelapor      : {rekap['total_pelapor']}")
+    print(f"Persentase selesai : {rekap['persentase_selesai']}%")
+    print("\n--- Top 5 Prioritas ---")
+    for i, l in enumerate(services.urutkan_prioritas()[:5], 1):
+        print(f"{i}. {l['jalan']} ({l['kecamatan']}) | {l['tingkat']} | skor {l['skor']}")
+
+
+def menu_login():
+    username = minta_teks("Username: ")
+    password = minta_teks("Password: ")
+    pengguna = services.login(username, password)
+    if pengguna is None:
+        print("Login gagal. Username atau password salah.")
+        return
+    print(f"Selamat datang, {pengguna['nama']} ({pengguna['peran']})")
+    menu_staf(pengguna)
+
+
+def menu_staf(pengguna):
+    while True:
+        print("\n--- Menu Staf ---")
+        print("1. Lihat laporan baru")
+        print("2. Verifikasi laporan")
+        print("3. Ubah status laporan")
+        print("4. Catat tindak lanjut")
+        print("5. Tandai tindak lanjut selesai")
+        print("6. Lihat prioritas")
+        if pengguna["peran"] == "admin":
+            print("7. Tambah petugas")
+        print("0. Logout")
+        pilihan = input("Pilih: ").strip()
+
+        try:
+            if pilihan == "1":
+                for l in services.filter_laporan("Baru"):
+                    print(f"{l['kode']} | {l['jalan']} | {l['tingkat']}")
+            elif pilihan == "2":
+                kode = minta_teks("Kode laporan: ")
+                jawab = minta_teks("Laporan valid? (y/n): ")
+                services.verifikasi_laporan(kode, jawab.lower() == "y", pengguna["peran"])
+                print("Verifikasi tersimpan.")
+            elif pilihan == "3":
+                kode = minta_teks("Kode laporan: ")
+                status = minta_teks("Status baru (Dalam Penanganan/Selesai): ")
+                services.ubah_status(kode, status, pengguna["peran"])
+                print("Status diubah.")
+            elif pilihan == "4":
+                kode = minta_teks("Kode laporan: ")
+                catatan = minta_teks("Catatan tindakan: ")
+                pj = minta_teks("Penanggung jawab: ")
+                tgl = minta_teks("Tanggal rencana (dd-MM-yyyy): ")
+                services.catat_tindak_lanjut(kode, catatan, pj, tgl, pengguna["peran"])
+                print("Tindak lanjut dicatat.")
+            elif pilihan == "5":
+                kode = minta_teks("Kode laporan: ")
+                tgl = minta_teks("Tanggal selesai (dd-MM-yyyy): ")
+                foto = minta_teks("Foto sesudah (.jpg/.png): ")
+                services.selesaikan_tindak_lanjut(kode, tgl, foto, pengguna["peran"])
+                print("Tindak lanjut ditandai selesai.")
+            elif pilihan == "6":
+                for i, l in enumerate(services.urutkan_prioritas(), 1):
+                    print(f"{i}. {l['kode']} | {l['jalan']} | skor {l['skor']}")
+            elif pilihan == "7" and pengguna["peran"] == "admin":
+                tambah_petugas()
+            elif pilihan == "0":
+                print("Anda telah logout.")
+                break
             else:
-                data = self.pengelola.daftar_laporan
+                print("Pilihan tidak valid.")
+        except ValueError as e:
+            print(f"Gagal: {e}")
 
-            hasil_urut = self.pengelola.ambil_laporan_terurut(kriteria=urut, data_sumber=data)
-            return jsonify(hasil_urut)
 
-        @self.app.route("/api/lapor", methods=["POST"])
-        def aksi_kirim_laporan():
-            payload = request.get_json(silent=True) or {}
-            try:
-                hasil = self.pengelola.buat_atau_gabung_laporan(
-                    nama_jalan=payload.get("nama_jalan", ""),
-                    wilayah=payload.get("wilayah", ""),
-                    tingkat_kerusakan=payload.get("tingkat_kerusakan", ""),
-                    foto=payload.get("foto", ""),
-                )
-                return jsonify(hasil), 201
-            except (ValueError, AssertionError) as err:
-                return jsonify({"error": str(err)}), 400
-
-        @self.app.route("/api/cek/<kode_laporan>", methods=["GET"])
-        def aksi_cek_kode(kode_laporan: str):
-            hasil = self.pengelola.cari_berdasarkan_kode(kode_laporan=kode_laporan)
-            if hasil is None:
-                return jsonify({"error": "Kode laporan tidak ditemukan."}), 404
-            return jsonify(hasil)
-
-        @self.app.route("/api/petugas/status", methods=["POST"])
-        def aksi_ubah_status():
-            payload = request.get_json(silent=True) or {}
-            try:
-                hasil = self.pengelola.perbarui_status_laporan(
-                    kode_laporan=payload.get("kode_laporan", ""),
-                    status_baru=payload.get("status_baru", ""),
-                    catatan=payload.get("catatan", "-"),
-                )
-                return jsonify(hasil)
-            except (ValueError, AssertionError) as err:
-                return jsonify({"error": str(err)}), 400
-
-        @self.app.route("/api/statistik", methods=["GET"])
-        def menu_statistik():
-            return jsonify(self.pengelola.ringkasan_statistik())
-
-    def jalankan(self, port: int = 5000) -> None:
-        self.app.run(debug=True, port=port)
+def tambah_petugas():
+    id_pengguna = minta_teks("ID petugas: ")
+    nama = minta_teks("Nama petugas: ")
+    username = minta_teks("Username: ")
+    password = minta_teks("Password (min 6 karakter): ")
+    services.tambah_pengguna("admin", id_pengguna, nama, username, password)
+    print("Petugas ditambahkan.")
 
 
 if __name__ == "__main__":
-    aplikasi = AplikasiRoadWatch()
-    aplikasi.jalankan(port=5000)
+    storage.buat_file_laporan()
+    storage.buat_file_tindak_lanjut()
+    menu_utama()
