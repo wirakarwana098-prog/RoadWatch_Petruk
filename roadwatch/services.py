@@ -241,6 +241,7 @@ def login(username, password):
 def tambah_pengguna(peran, id_pengguna, nama, username, password):
     if peran != "admin":
         raise ValueError("Hanya admin yang boleh menambah pengguna.")
+    id_pengguna = validasi_teks(id_pengguna, "ID petugas")
     username = validasi_teks(username, "Username")
     password = validasi_password(password)
     nama = validasi_teks(nama, "Nama")
@@ -253,3 +254,30 @@ def tambah_pengguna(peran, id_pengguna, nama, username, password):
     PENGGUNA_AWAL.append(baru)
     catat_log(f"Petugas baru ditambahkan: {username}")
     return baru
+
+
+def hapus_pengguna(peran, id_pengguna):
+    if peran != "admin":
+        raise ValueError("Hanya admin yang boleh menghapus petugas.")
+    id_pengguna = validasi_teks(id_pengguna, "ID petugas")
+    for i in range(len(PENGGUNA_AWAL)):
+        if PENGGUNA_AWAL[i]["id"] == id_pengguna:
+            if PENGGUNA_AWAL[i]["peran"] == "admin":
+                raise ValueError("Akun administrator utama tidak dapat dihapus.")
+            terhapus = PENGGUNA_AWAL.pop(i)
+            catat_log(f"Petugas dihapus: {terhapus['username']}")
+            return terhapus
+    raise ValueError("ID petugas tidak ditemukan.")
+
+
+def reset_password_pengguna(peran, id_pengguna, password_baru):
+    if peran != "admin":
+        raise ValueError("Hanya admin yang boleh mereset password.")
+    id_pengguna = validasi_teks(id_pengguna, "ID petugas")
+    password_baru = validasi_password(password_baru)
+    for pengguna in PENGGUNA_AWAL:
+        if pengguna["id"] == id_pengguna:
+            pengguna["password"] = password_baru
+            catat_log(f"Password direset untuk: {pengguna['username']}")
+            return pengguna
+    raise ValueError("ID petugas tidak ditemukan.")

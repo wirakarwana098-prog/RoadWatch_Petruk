@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RoadWatch Lampung — Panel Petugas & Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='panel.css') }}">
+</head>
+<body class="panel-body">
+  <header class="panel-header">
+    <div class="panel-header-inner">
+      <a href="/" class="brand">
+        <span class="brand-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+        </span>
+        <span class="brand-text">RoadWatch Lampung<span class="brand-dot">.</span></span>
+      </a>
+
+      <div class="header-right-controls">
+        <span id="headerUserIdentity" class="user-identity hidden">
+          Administrator (Admin PUPR)
+        </span>
+        <button type="button" id="btnToggleDark" class="btn btn-ghost btn-sm">
+          Mode Gelap
+        </button>
+        <a href="/" id="btnKembaliPublik" class="btn btn-ghost btn-sm">
+          Halaman Publik
+        </a>
+        <button type="button" id="btnLogoutPanel" class="btn btn-danger btn-sm hidden">
+          Logout
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="viewLoginPanel" class="login-wrapper">
+    <div class="login-card">
+      <h1>Masuk ke Sistem</h1>
+      <p class="login-sub">Silakan login menggunakan akun Administrator atau Petugas PUPR Bandar Lampung.</p>
+
+      <div id="alertLoginPanel" class="alert-box hidden" role="status"></div>
+
+      <form id="formLoginPanel">
+        <div class="form-group">
+          <label for="panelUsername">Username</label>
+          <input type="text" id="panelUsername" placeholder="Masukkan username" autocomplete="username" required>
+        </div>
+        <div class="form-group">
+          <label for="panelPassword">Password</label>
+          <input type="password" id="panelPassword" placeholder="Masukkan password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn btn-dark btn-submit">Login →</button>
+      </form>
+
+      <div class="login-hint">
+        Username dan password tanyakan ke administrator.
+      </div>
+    </div>
+  </main>
+
+  <div id="viewDashboardPanel" class="app-shell hidden">
+    <aside class="panel-sidebar" aria-label="Menu Navigasi Panel">
+      <div class="sidebar-label">MENU UTAMA</div>
+      <nav class="sidebar-nav">
+        <button type="button" class="sidebar-btn active" data-menu="menuDashboard">
+          Dashboard
+        </button>
+        <button type="button" class="sidebar-btn" data-menu="menuCekLaporan">
+          Cek Laporan
+        </button>
+        <button type="button" class="sidebar-btn" data-menu="menuUpdateProgres" id="navBtnUpdateProgres">
+          Update Progres
+        </button>
+        <button type="button" class="sidebar-btn hidden" data-menu="menuPetugas" id="navBtnPetugas">
+          Petugas
+        </button>
+      </nav>
+    </aside>
+
+    <main class="panel-content">
+      <div id="alertGlobalPanel" class="alert-box hidden" role="status"></div>
+
+      <!-- MENU 1: DASHBOARD -->
+      <section id="menuDashboard" class="menu-section">
+        <div class="section-header-bar">
+          <div>
+            <h2>Dashboard Pemantauan</h2>
+            <p class="road-sub">Ringkasan kondisi laporan jalan rusak dan prioritas penanganan terkini.</p>
+          </div>
+        </div>
+
+        <div class="dash-cards-grid">
+          <div class="stat-card">
+            <span class="stat-card-label">Total Laporan</span>
+            <strong class="stat-card-num" id="statDashTotal">0</strong>
+          </div>
+          <div class="stat-card">
+            <span class="stat-card-label">Laporan Baru (Belum Verifikasi)</span>
+            <strong class="stat-card-num text-purple" id="statDashBaru">0</strong>
+          </div>
+          <div class="stat-card">
+            <span class="stat-card-label">Terverifikasi</span>
+            <strong class="stat-card-num text-blue" id="statDashVerif">0</strong>
+          </div>
+          <div class="stat-card">
+            <span class="stat-card-label">Dalam Penanganan</span>
+            <strong class="stat-card-num text-warning" id="statDashProses">0</strong>
+          </div>
+          <div class="stat-card">
+            <span class="stat-card-label">Selesai</span>
+            <strong class="stat-card-num text-success" id="statDashSelesai">0</strong>
+          </div>
+          <div class="stat-card">
+            <span class="stat-card-label">Total Akumulasi Pelapor</span>
+            <strong class="stat-card-num" id="statDashPelapor">0</strong>
+          </div>
+        </div>
+
+        <div class="panel-card" style="margin-top:24px;">
+          <div class="card-head-row">
+            <div>
+              <h3>Daftar Prioritas Tertinggi</h3>
+              <p class="road-sub">Diurutkan otomatis berdasarkan bobot kerusakan dan jumlah pelapor.</p>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="priority-table">
+              <thead>
+                <tr>
+                  <th>Kode</th>
+                  <th>Nama Jalan</th>
+                  <th>Kecamatan</th>
+                  <th>Tingkat</th>
+                  <th>Pelapor</th>
+                  <th>Skor</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyDashRingkasan">
+                <tr><td colspan="7" class="empty-cell">Memuat data...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- MENU 2: CEK LAPORAN & VERIFIKASI -->
+      <section id="menuCekLaporan" class="menu-section hidden">
+        <div class="section-header-bar">
+          <div>
+            <h2>Cek Laporan & Verifikasi</h2>
+            <p class="road-sub">Cari laporan berdasarkan kode atau pilih baris laporan untuk verifikasi.</p>
+          </div>
+          <div class="inline-search-box">
+            <input type="text" id="inputFilterCek" placeholder="Cari kode / nama jalan...">
+            <select id="selectStatusCek">
+              <option value="">Semua Status</option>
+              <option value="Baru">Baru</option>
+              <option value="Terverifikasi">Terverifikasi</option>
+              <option value="Dalam Penanganan">Dalam Penanganan</option>
+              <option value="Selesai">Selesai</option>
+              <option value="Ditolak">Ditolak</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="cekWorkspace" class="split-workspace single-col">
+          <div class="panel-card">
+            <div class="table-responsive">
+              <table class="priority-table selectable-table">
+                <thead>
+                  <tr>
+                    <th>Kode</th>
+                    <th>Jalan & Kecamatan</th>
+                    <th>Tingkat</th>
+                    <th>Skor</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyCekLaporan">
+                  <tr><td colspan="5" class="empty-cell">Memuat data...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="cekDetailCard" class="panel-card hidden">
+            <div id="cekDetailBox" class="hidden">
+              <div class="detail-top-row">
+                <span class="code-chip" id="cekKode">RW-0001</span>
+                <span class="badge badge-baru" id="cekStatusBadge">Baru</span>
+              </div>
+              <h3 id="cekJalan" style="margin-top:8px;">-</h3>
+              <p class="road-sub" id="cekKecamatan">-</p>
+
+              <div class="detail-grid">
+                <div class="detail-box">
+                  <span>Tingkat & Skor</span>
+                  <strong id="cekTingkatSkor">-</strong>
+                </div>
+                <div class="detail-box">
+                  <span>Pelapor & Tanggal</span>
+                  <strong id="cekPelaporTanggal">-</strong>
+                </div>
+              </div>
+
+              <div id="boxVerifikasiAksi" class="sub-action-box hidden">
+                <h4>Verifikasi Laporan Baru</h4>
+                <p class="road-sub" style="margin-bottom:12px;">Pastikan laporan valid sebelum masuk ke antrean tindak lanjut dinas.</p>
+                <div class="btn-row">
+                  <button type="button" id="btnVerifTerima" class="btn btn-dark btn-sm">Verifikasi (Valid)</button>
+                  <button type="button" id="btnVerifTolak" class="btn btn-danger btn-sm">Tolak Laporan</button>
+                </div>
+              </div>
+
+              <div style="margin-top:18px;">
+                <h4 style="font-size:0.9rem;margin-bottom:8px;">Riwayat Tindak Lanjut</h4>
+                <div id="cekRiwayatList">
+                  <p class="road-sub">Belum ada riwayat tindak lanjut.</p>
+                </div>
+              </div>
+
+              <div class="detail-footer-actions">
+                <button type="button" id="btnKembaliCekLaporan" class="btn btn-ghost btn-sm">
+                  ← Kembali
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- MENU 3: UPDATE PROGRES PERBAIKAN -->
+      <section id="menuUpdateProgres" class="menu-section hidden">
+        <div class="section-header-bar">
+          <div>
+            <h2>Update Progres Perbaikan</h2>
+            <p class="road-sub">Klik baris laporan untuk memunculkan tombol aksi di bawah tabel, lalu buka pop-up form sesuai kebutuhan.</p>
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <div class="card-head-row">
+            <div>
+              <h3>Laporan siap ditangani</h3>
+              <p class="road-sub">Menampilkan laporan berstatus Terverifikasi & Dalam Penanganan.</p>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="priority-table selectable-table">
+              <thead>
+                <tr>
+                  <th>Kode</th>
+                  <th>Jalan</th>
+                  <th>Kecamatan</th>
+                  <th>Tingkat</th>
+                  <th>Status</th>
+                  <th>Skor</th>
+                </tr>
+              </thead>
+              <tbody id="tbodySiapDitangani">
+                <tr><td colspan="6" class="empty-cell">Memuat antrean...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div id="progresActionBar" class="progres-action-bar hidden">
+            <div class="progres-action-buttons">
+              <button type="button" id="btnBukaPopupTindakLanjut" class="btn btn-dark btn-sm">
+                Catat Tindak Lanjut
+              </button>
+              <button type="button" id="btnBukaPopupSelesai" class="btn btn-ghost btn-sm">
+                Tandai Selesai
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- MENU 4: KELOLA PETUGAS (ADMIN) -->
+      <section id="menuPetugas" class="menu-section hidden">
+        <div class="section-header-bar">
+          <div>
+            <h2>Kelola Petugas</h2>
+            <p class="road-sub">Manajemen akun petugas lapangan dan administrator PUPR.</p>
+          </div>
+          <div>
+            <button type="button" id="btnBukaPopupTambahPetugas" class="btn btn-dark btn-sm">
+              + tambah petugas
+            </button>
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <div class="table-responsive">
+            <table class="priority-table selectable-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Nama Lengkap</th>
+                  <th>Username</th>
+                  <th>Jabatan</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyPetugasAdmin">
+                <tr><td colspan="4" class="empty-cell">Memuat daftar petugas...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="bottom-table-actions">
+            <button type="button" id="btnHapusPetugasTerpilih" class="btn btn-danger btn-sm">
+              Hapus Petugas Terpilih
+            </button>
+            <button type="button" id="btnResetPasswordTerpilih" class="btn btn-ghost btn-sm">
+              Reset Password Terpilih
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- POP-UP TAMBAH PETUGAS BARU (ID OTOMATIS) -->
+  <div id="modalTambahPetugas" class="modal-backdrop hidden">
+    <div class="modal-panel" style="max-width:460px;">
+      <div class="modal-header">
+        <h3>Tambah petugas baru</h3>
+        <button type="button" id="btnTutupModalTambahPetugas" class="modal-close">✕</button>
+      </div>
+
+      <form id="formTambahPetugasBaru">
+        <div class="form-group">
+          <label for="newIdPetugas">ID petugas (otomatis)</label>
+          <input type="text" id="newIdPetugas" readonly required>
+        </div>
+        <div class="form-group">
+          <label for="newNamaPetugas">Nama</label>
+          <input type="text" id="newNamaPetugas" placeholder="Nama lengkap petugas" required>
+        </div>
+        <div class="form-group">
+          <label for="newUserPetugas">Username</label>
+          <input type="text" id="newUserPetugas" placeholder="Username login" required>
+        </div>
+        <div class="form-group">
+          <label for="newPassPetugas">Password</label>
+          <input type="password" id="newPassPetugas" placeholder="Minimal 6 karakter" required>
+        </div>
+        <button type="submit" class="btn btn-dark btn-sm">
+          Tambah Petugas
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- POP-UP 1: CATAT TINDAK LANJUT -->
+  <div id="modalCatatTindakLanjut" class="modal-backdrop hidden">
+    <div class="modal-panel" style="max-width:480px;">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow" style="margin-bottom:4px;">PROGRES PERBAIKAN</span>
+          <h3>Catat Tindak Lanjut</h3>
+        </div>
+        <button type="button" id="btnTutupModalTl" class="modal-close">✕</button>
+      </div>
+      <p class="modal-desc" id="labelTargetModalTl">Laporan terpilih: -</p>
+
+      <form id="formProgresTindakLanjut">
+        <div class="form-group">
+          <label for="progCatatan">Catatan tindakan</label>
+          <input type="text" id="progCatatan" placeholder="Contoh: Penambalan aspal hotmix" required>
+        </div>
+        <div class="form-group">
+          <label for="progPj">Penanggung jawab</label>
+          <input type="text" id="progPj" placeholder="Contoh: Tim Lapangan PUPR" required>
+        </div>
+        <div class="form-group">
+          <label for="progTglRencana">Tanggal rencana</label>
+          <input type="date" id="progTglRencana" required>
+        </div>
+        <div class="btn-row" style="margin-top:16px;">
+          <button type="submit" class="btn btn-dark btn-sm" id="btnCatatTindakLanjut">
+            Catat Tindak Lanjut
+          </button>
+          <button type="button" id="btnBatalModalTl" class="btn btn-ghost btn-sm">
+            Batal
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- POP-UP 2: TANDAI SELESAI -->
+  <div id="modalTandaiSelesai" class="modal-backdrop hidden">
+    <div class="modal-panel" style="max-width:480px;">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow" style="margin-bottom:4px;">PENYELESAIAN LAPORAN</span>
+          <h3>Tandai Selesai</h3>
+        </div>
+        <button type="button" id="btnTutupModalSelesai" class="modal-close">✕</button>
+      </div>
+      <p class="modal-desc" id="labelTargetModalSelesai">Laporan terpilih: -</p>
+
+      <form id="formProgresSelesai">
+        <div class="form-group">
+          <label for="progTglSelesai">Tanggal selesai</label>
+          <input type="date" id="progTglSelesai" required>
+        </div>
+        <div class="form-group">
+          <label for="progFotoSesudah">Foto sesudah (.jpg, .jpeg, .png)</label>
+          <input type="file" id="progFotoSesudah" accept=".jpg,.jpeg,.png" required>
+        </div>
+        <div class="btn-row" style="margin-top:16px;">
+          <button type="submit" class="btn btn-dark btn-sm" id="btnTandaiSelesai">
+            Tandai Selesai
+          </button>
+          <button type="button" id="btnBatalModalSelesai" class="btn btn-ghost btn-sm">
+            Batal
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- POP-UP 3: RESET PASSWORD PETUGAS -->
+  <div id="modalResetPass" class="modal-backdrop hidden">
+    <div class="modal-panel" style="max-width:420px;">
+      <div class="modal-header">
+        <h3>Reset Password Petugas</h3>
+        <button type="button" id="btnTutupModalReset" class="modal-close">✕</button>
+      </div>
+      <p class="modal-desc" id="labelTargetReset">Masukkan password baru untuk petugas terpilih.</p>
+      <form id="formKonfirmasiResetPass">
+        <div class="form-group">
+          <label for="inputPasswordBaruModal">Password Baru (min. 6 karakter)</label>
+          <input type="password" id="inputPasswordBaruModal" required>
+        </div>
+        <div class="btn-row">
+          <button type="submit" class="btn btn-dark btn-sm">Simpan Password</button>
+          <button type="button" id="btnBatalModalReset" class="btn btn-ghost btn-sm">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='panel.js') }}"></script>
+</body>
+</html>

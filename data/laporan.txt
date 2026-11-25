@@ -1,4 +1,4 @@
-RW-9292|Jl. ZA Pagar Alam|Kedaton|Berat|pagar_alam.jpg|Baru|1|3|2026-11-21 00:58|-
-RW-5635|Jl. Teuku Umar|Kedaton|Sedang|teuku_umar.jpg|Baru|1|2|2026-11-21 00:58|-
-RW-1740|Jl. Soekarno-Hatta|Sukarame|Berat|bypass.jpg|Baru|1|3|2026-11-21 00:58|-
-RW-8486|Jl. Kartini|Tanjung Karang Pusat|Ringan|kartini.jpg|Baru|1|1|2026-11-21 00:58|-
+RW-0001|Jl. ZA Pagar Alam|Kedaton|Berat|1|31|Baru|20-11-2026|contoh_1.jpg
+RW-0002|Jl. Teuku Umar|Kedaton|Sedang|5|25|Terverifikasi|25-11-2026|contoh_2.jpg
+RW-0003|Jl. Ryacudu|Sukarame|Berat|2|32|Dalam Penanganan|22-11-2026|contoh_3.jpg
+RW-0004|Jl. Kartini|Tanjung Karang Pusat|Ringan|8|18|Selesai|24-11-2026|contoh_4.jpg

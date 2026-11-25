@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RoadWatch Lampung — Pemantauan & Prioritas Jalan Rusak</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="navbar">
+    <div class="container nav-inner">
+      <a href="#beranda" class="brand">
+        <span class="brand-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+        </span>
+        <span class="brand-text">RoadWatch<span class="brand-dot">.</span></span>
+      </a>
+
+      <nav class="nav-links" aria-label="Navigasi Utama">
+        <a href="#buat-laporan">Buat Laporan</a>
+        <a href="#daftar-prioritas">Daftar Prioritas</a>
+        <a href="#cek-laporan">Cek Laporan</a>
+      </nav>
+
+      <a href="/panel" id="btnAksesPetugas" class="btn btn-dark btn-sm">
+        <span id="labelAksesPetugas">Akses Petugas</span>
+        <span aria-hidden="true">↗</span>
+      </a>
+    </div>
+  </header>
+
+  <main id="beranda">
+    <section class="hero-section">
+      <div class="hero-glow" aria-hidden="true"></div>
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <h1 class="hero-title">
+            Laporkan <span class="text-gradient">jalan rusak</span> lebih cepat.
+          </h1>
+          <p class="hero-subtitle">
+            Bantu wujudkan perjalanan yang lebih aman di Bandar Lampung. Laporkan titik kerusakan jalan, gabungkan suara warga di lokasi yang sama, dan pantau urutan prioritas perbaikannya secara transparan.
+          </p>
+          <div class="hero-actions">
+            <a href="#buat-laporan" class="btn btn-dark">
+              <span>Lapor Sekarang</span>
+              <span aria-hidden="true">↗</span>
+            </a>
+            <a href="#cek-laporan" class="btn btn-ghost">
+              <span>Lacak Laporan</span>
+              <span aria-hidden="true">→</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="hero-visual">
+          <span class="float-badge float-badge-cyan" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M12 3l1.9 5.8L20 10.7l-6.1 1.9L12 18.4l-1.9-5.8L4 10.7l6.1-1.9L12 3z"></path>
+            </svg>
+          </span>
+          <span class="float-badge float-badge-indigo" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <line x1="4" y1="21" x2="4" y2="14"></line>
+              <line x1="4" y1="10" x2="4" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12" y2="3"></line>
+              <line x1="20" y1="21" x2="20" y2="16"></line>
+              <line x1="20" y1="12" x2="20" y2="3"></line>
+            </svg>
+          </span>
+          <span class="float-badge float-badge-pink" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+              <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+          </span>
+
+          <div class="preview-card-main">
+            <div class="preview-top">
+              <span class="mini-label">PRIORITAS TERTINGGI SAAT INI</span>
+              <span class="dots" aria-hidden="true">•••</span>
+            </div>
+            <h3 id="heroTopJalan">Memuat lokasi...</h3>
+            <p class="preview-loc" id="heroTopKecamatan">Bandar Lampung</p>
+
+            <div class="preview-level">
+              <span class="mini-label">Tingkat kerusakan</span>
+              <div class="level-pills">
+                <span class="pill" id="heroPillRingan">Ringan</span>
+                <span class="pill" id="heroPillSedang">Sedang</span>
+                <span class="pill" id="heroPillBerat">Berat</span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" id="heroProgressBar"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="preview-card-score">
+            <span class="mini-label">STATUS & SKOR PRIORITAS</span>
+            <div class="score-row">
+              <strong class="score-number" id="heroTopSkor">-</strong>
+              <span class="score-unit" id="heroTopStatus">/ Menunggu</span>
+            </div>
+            <div class="code-row">
+              <span>Kode laporan</span>
+              <strong id="heroTopKode">-</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats-strip" aria-label="Statistik Laporan">
+      <div class="container">
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-value" id="statTotal">0</div>
+            <div class="stat-label">Titik Dilaporkan</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="statPenanganan">0</div>
+            <div class="stat-label">Dalam Penanganan</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="statPersentase">0%</div>
+            <div class="stat-label">Tingkat Selesai</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="statPelapor">0</div>
+            <div class="stat-label">Total Akumulasi Pelapor</div>
+          </div>
+        </div>
+        <p class="stats-caption">Data langsung disinkronkan dari penyimpanan laporan RoadWatch Lampung.</p>
+      </div>
+    </section>
+
+    <section class="features-section">
+      <div class="container">
+        <div class="section-head center">
+          <span class="eyebrow">KENAPA ROADWATCH?</span>
+          <h2 class="section-title">Keunggulan sistem yang bekerja untuk jalan lebih baik.</h2>
+          <p class="section-desc">Dari laporan warga hingga penjadwalan tindak lanjut dinas, setiap tahap diproses terstruktur dan transparan.</p>
+        </div>
+
+        <div class="features-grid">
+          <article class="feature-card">
+            <div class="feature-icon icon-purple">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                <polyline points="2 17 12 22 22 17"></polyline>
+                <polyline points="2 12 12 17 22 12"></polyline>
+              </svg>
+            </div>
+            <h3>Deteksi Laporan Ganda</h3>
+            <p>Otomatis menggabungkan laporan pada nama jalan dan kecamatan yang sama untuk menaikkan jumlah pelapor serta skor prioritas.</p>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-icon icon-blue">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </div>
+            <h3>Pelacakan Kode RW-XXXX</h3>
+            <p>Cek status verifikasi hingga riwayat tindak lanjut perbaikan secara langsung menggunakan kode unik laporan Anda.</p>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-icon icon-pink">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="6" y1="12" x2="18" y2="12"></line>
+                <line x1="9" y1="18" x2="15" y2="18"></line>
+              </svg>
+            </div>
+            <h3>Pemeringkatan Otomatis</h3>
+            <p>Mengurutkan urgensi perbaikan berdasarkan bobot tingkat kerusakan dan jumlah pelapor (Skor = Bobot × 10 + Pelapor).</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="buat-laporan" class="report-section">
+      <div class="report-bg" aria-hidden="true"></div>
+      <div class="container report-grid">
+        <div class="report-info">
+          <span class="eyebrow">BUAT LAPORAN</span>
+          <h2 class="section-title">Satu laporan, langkah nyata menuju jalan yang lebih aman.</h2>
+          <p class="section-desc">
+            Isi nama jalan, kecamatan, tingkat kerusakan, dan unggah foto kondisi jalan di Bandar Lampung. Simpan kode <strong>RW-XXXX</strong> yang muncul setelah pengiriman.
+          </p>
+
+          <div class="info-note">
+            <div class="info-badge">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                <polyline points="9 12 11 14 15 10"></polyline>
+              </svg>
+            </div>
+            <p>
+              Jika titik jalan dan kecamatan sudah pernah dilaporkan warga lain, sistem otomatis menggabungkan laporan agar prioritas penanganannya naik.
+            </p>
+          </div>
+        </div>
+
+        <div class="form-card">
+          <form id="formLaporan" novalidate>
+            <div class="form-group">
+              <label for="inputJalan">Nama jalan <span class="req">*</span></label>
+              <input type="text" id="inputJalan" name="jalan" maxlength="100" autocomplete="off" placeholder="Contoh: Jl. ZA Pagar Alam" required>
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label for="inputKecamatan">Kecamatan <span class="req">*</span></label>
+                <select id="inputKecamatan" name="kecamatan" required>
+                  <option value="">Pilih kecamatan</option>
+                  <option value="Bumi Waras">Bumi Waras</option>
+                  <option value="Enggal">Enggal</option>
+                  <option value="Kedamaian">Kedamaian</option>
+                  <option value="Kedaton">Kedaton</option>
+                  <option value="Kemiling">Kemiling</option>
+                  <option value="Labuhan Ratu">Labuhan Ratu</option>
+                  <option value="Langkapura">Langkapura</option>
+                  <option value="Panjang">Panjang</option>
+                  <option value="Rajabasa">Rajabasa</option>
+                  <option value="Sukabumi">Sukabumi</option>
+                  <option value="Sukarame">Sukarame</option>
+                  <option value="Tanjung Karang Barat">Tanjung Karang Barat</option>
+                  <option value="Tanjung Karang Pusat">Tanjung Karang Pusat</option>
+                  <option value="Tanjung Karang Timur">Tanjung Karang Timur</option>
+                  <option value="Tanjung Senang">Tanjung Senang</option>
+                  <option value="Teluk Betung Barat">Teluk Betung Barat</option>
+                  <option value="Teluk Betung Selatan">Teluk Betung Selatan</option>
+                  <option value="Teluk Betung Timur">Teluk Betung Timur</option>
+                  <option value="Teluk Betung Utara">Teluk Betung Utara</option>
+                  <option value="Way Halim">Way Halim</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="inputTingkat">Tingkat kerusakan <span class="req">*</span></label>
+                <select id="inputTingkat" name="tingkat" required>
+                  <option value="">Pilih tingkat</option>
+                  <option value="Ringan">Ringan (Bobot 1)</option>
+                  <option value="Sedang">Sedang (Bobot 2)</option>
+                  <option value="Berat">Berat (Bobot 3)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="inputFoto">Foto bukti kerusakan <span class="req">*</span></label>
+              <label for="inputFoto" class="file-dropzone" id="dropzoneFoto">
+                <input type="file" id="inputFoto" name="foto" accept=".jpg,.jpeg,.png" required>
+                <div class="file-drop-content" id="fileDropPlaceholder">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                  </svg>
+                  <span>Klik untuk unggah foto jalan rusak</span>
+                  <small>Format JPG, JPEG, atau PNG (maks. 5 MB)</small>
+                </div>
+                <div class="file-preview-box hidden" id="filePreviewBox">
+                  <img id="previewImg" src="" alt="Pratinjau foto laporan">
+                  <div class="file-preview-meta">
+                    <strong id="previewFileName">foto.jpg</strong>
+                    <span>Klik untuk ganti foto</span>
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            <p class="form-hint">* Semua kolom wajib diisi dengan lokasi yang valid di Bandar Lampung.</p>
+
+            <div id="alertFormLaporan" class="alert-box hidden" role="status"></div>
+
+            <button type="submit" class="btn btn-dark btn-submit" id="btnKirimLaporan">
+              <span>Kirim Laporan</span>
+              <span aria-hidden="true">→</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section id="daftar-prioritas" class="priority-section">
+      <div class="container">
+        <div class="priority-header">
+          <div>
+            <span class="eyebrow">PRIORITAS YANG JELAS</span>
+            <h2 class="section-title">Peringkat prioritas & antrean penanganan jalan.</h2>
+            <p class="section-desc">Urutan dihitung otomatis berdasarkan tingkat kerusakan dan akumulasi laporan warga.</p>
+          </div>
+        </div>
+
+        <div class="filter-bar">
+          <div class="filter-item">
+            <label for="filterStatus">Status</label>
+            <select id="filterStatus">
+              <option value="">Semua Status</option>
+              <option value="Baru">Baru</option>
+              <option value="Terverifikasi">Terverifikasi</option>
+              <option value="Dalam Penanganan">Dalam Penanganan</option>
+              <option value="Selesai">Selesai</option>
+              <option value="Ditolak">Ditolak</option>
+            </select>
+          </div>
+
+          <div class="filter-item">
+            <label for="filterKecamatan">Kecamatan</label>
+            <select id="filterKecamatan">
+              <option value="">Semua Kecamatan</option>
+              <option value="Bumi Waras">Bumi Waras</option>
+              <option value="Enggal">Enggal</option>
+              <option value="Kedamaian">Kedamaian</option>
+              <option value="Kedaton">Kedaton</option>
+              <option value="Kemiling">Kemiling</option>
+              <option value="Labuhan Ratu">Labuhan Ratu</option>
+              <option value="Langkapura">Langkapura</option>
+              <option value="Panjang">Panjang</option>
+              <option value="Rajabasa">Rajabasa</option>
+              <option value="Sukabumi">Sukabumi</option>
+              <option value="Sukarame">Sukarame</option>
+              <option value="Tanjung Karang Barat">Tanjung Karang Barat</option>
+              <option value="Tanjung Karang Pusat">Tanjung Karang Pusat</option>
+              <option value="Tanjung Karang Timur">Tanjung Karang Timur</option>
+              <option value="Tanjung Senang">Tanjung Senang</option>
+              <option value="Teluk Betung Barat">Teluk Betung Barat</option>
+              <option value="Teluk Betung Selatan">Teluk Betung Selatan</option>
+              <option value="Teluk Betung Timur">Teluk Betung Timur</option>
+              <option value="Teluk Betung Utara">Teluk Betung Utara</option>
+              <option value="Way Halim">Way Halim</option>
+            </select>
+          </div>
+
+          <div class="filter-item">
+            <label for="filterTingkat">Tingkat</label>
+            <select id="filterTingkat">
+              <option value="">Semua Tingkat</option>
+              <option value="Berat">Berat</option>
+              <option value="Sedang">Sedang</option>
+              <option value="Ringan">Ringan</option>
+            </select>
+          </div>
+
+          <div class="filter-item">
+            <label for="selectMetodeSort">Urutkan</label>
+            <select id="selectMetodeSort">
+              <option value="selection">Prioritas Tertinggi</option>
+              <option value="bubble">Pelapor Terbanyak</option>
+              <option value="insertion">Laporan Terbaru</option>
+              <option value="kode">Urutan Awal (ID Laporan)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-responsive">
+            <table class="priority-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Kode</th>
+                  <th>Lokasi Jalan & Kecamatan</th>
+                  <th>Tingkat</th>
+                  <th>Pelapor</th>
+                  <th>Skor</th>
+                  <th>Status</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyPrioritas">
+                <tr>
+                  <td colspan="8" class="empty-cell">Memuat daftar prioritas laporan...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="cek-laporan" class="track-section">
+      <div class="container">
+        <div class="section-head center">
+          <span class="eyebrow">CEK LAPORAN</span>
+          <h2 class="section-title">Simpan kode laporan Anda.</h2>
+          <p class="section-desc">Masukkan kode laporan (format <strong>RW-XXXX</strong>) untuk memeriksa status terkini serta catatan tindak lanjut petugas.</p>
+        </div>
+
+        <div class="track-card">
+          <form id="formCekKode" class="track-form">
+            <label for="inputCariKode" class="track-label">Masukkan kode laporan</label>
+            <div class="track-input-row">
+              <input type="text" id="inputCariKode" maxlength="15" autocomplete="off" placeholder="Contoh: RW-0001" required>
+              <button type="submit" class="btn btn-dark">
+                <span>Cek Kode</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+              </button>
+            </div>
+            <div class="track-options">
+              <label class="checkbox-inline">
+                <input type="checkbox" id="checkBinarySearch">
+                <span>Gunakan Binary Search (urutkan kode dengan Insertion Sort terlebih dahulu)</span>
+              </label>
+            </div>
+          </form>
+
+          <div id="hasilLacak" class="track-result hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta-section">
+      <div class="container">
+        <div class="cta-banner">
+          <span class="eyebrow eyebrow-light">MULAI DARI SATU LAPORAN</span>
+          <h2>Jalan yang lebih baik dimulai dari kepedulian kita.</h2>
+          <p>Temukan kerusakan jalan di sekitar Anda? Sampaikan lokasinya agar informasi tersebut tercatat jelas dan diprioritaskan.</p>
+          <a href="#buat-laporan" class="btn btn-white">
+            <span>Lapor Sekarang</span>
+            <span aria-hidden="true">↗</span>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="brand-icon" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+        </span>
+        <span class="brand-text">RoadWatch<span class="brand-dot">.</span></span>
+      </div>
+      <p class="footer-copy">RoadWatch • Pemantauan & Prioritas Jalan Rusak Bandar Lampung</p>
+      <div class="footer-links">
+        <a href="#buat-laporan">Lapor Jalan</a>
+        <a href="#daftar-prioritas">Prioritas</a>
+        <a href="#cek-laporan">Lacak Kode</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

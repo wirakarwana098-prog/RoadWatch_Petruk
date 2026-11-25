@@ -1,1 +1,2 @@
-kode_laporan|catatan|penanggung_jawab|tanggal_rencana|tanggal_selesai|foto_sesudah
+RW-0003|Wira|Dalam Penanganan|13-11-2026|-|-
+RW-0004|Administrator|Perbaikan jalan telah diselesaikan|25-11-2026|25-11-2026|selesai_rw-0004_1795589525.jpg
