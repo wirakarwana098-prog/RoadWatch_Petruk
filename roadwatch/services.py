@@ -1,3 +1,5 @@
+#modularitas modul services (mengatur logika bisnis utama laporan jalan rusak, prioritas, tindak lanjut, dan manajemen pengguna)
+#library & modularitas (mengimpor datetime serta fungsi algoritma, storage, dan validasi internal)
 from datetime import datetime
 
 from . import algoritma
@@ -18,6 +20,7 @@ from .validasi import (
     validasi_password,
 )
 
+#konstanta aturan bisnis & akun default (menyimpan bobot kerusakan, alur transisi status valid, dan daftar akun awal)
 BOBOT_KERUSAKAN = {"Ringan": 1, "Sedang": 2, "Berat": 3}
 STATUS_VALID = ("Baru", "Terverifikasi", "Dalam Penanganan", "Selesai", "Ditolak")
 TRANSISI_VALID = {
@@ -31,6 +34,7 @@ PENGGUNA_AWAL = [
 ]
 
 
+#generator kode unik (membuat kode berformat RW-XXXX yang belum terpakai menggunakan pengecekan linear search)
 def buat_kode_laporan(daftar):
     urutan = len(daftar) + 1
     while True:
@@ -40,11 +44,13 @@ def buat_kode_laporan(daftar):
         urutan += 1
 
 
+#kalkulasi skor prioritas (menghitung nilai urgensi berdasarkan rumus bobot tingkat kerusakan dikali 10 ditambah jumlah pelapor)
 def hitung_skor_prioritas(laporan):
     bobot = BOBOT_KERUSAKAN.get(laporan["tingkat"], 0)
     return bobot * 10 + laporan["jumlah_pelapor"]
 
 
+#helper pembaruan daftar (mengganti data laporan lama dengan versi terbaru berdasarkan kecocokan kode)
 def _ganti_laporan(laporan):
     daftar = baca_semua_laporan()
     for i in range(len(daftar)):
@@ -54,6 +60,7 @@ def _ganti_laporan(laporan):
     return daftar
 
 
+#logika tambah & gabung duplikat (memvalidasi input lalu menaikkan jumlah_pelapor jika lokasi sama atau membuat laporan baru)
 def tambah_laporan(jalan, kecamatan, tingkat, foto):
     jalan = validasi_teks(jalan, "Nama jalan")
     kecamatan = validasi_teks(kecamatan, "Kecamatan")
@@ -82,6 +89,7 @@ def tambah_laporan(jalan, kecamatan, tingkat, foto):
     return laporan["kode"]
 
 
+#searching & keyword argument (mencari laporan berdasarkan kode menggunakan linear search atau binary search setelah diurutkan)
 def cari_laporan(kode, pakai_binary=False):
     kode = validasi_teks(kode, "Kode laporan")
     daftar = baca_semua_laporan()
@@ -93,6 +101,7 @@ def cari_laporan(kode, pakai_binary=False):
     return daftar[indeks] if indeks != -1 else None
 
 
+#error handling kontrol alur status (memvalidasi hak akses peran dan aturan transisi status sebelum menyimpan perubahan)
 def ubah_status(kode, status_baru, peran):
     laporan = cari_laporan(kode)
     if laporan is None:
@@ -109,6 +118,7 @@ def ubah_status(kode, status_baru, peran):
     return laporan
 
 
+#verifikasi laporan baru (mengubah status laporan 'Baru' menjadi 'Terverifikasi' atau 'Ditolak' oleh petugas/admin)
 def verifikasi_laporan(kode, valid, peran):
     laporan = cari_laporan(kode)
     if laporan is None:
@@ -123,6 +133,7 @@ def verifikasi_laporan(kode, valid, peran):
     return laporan
 
 
+#pencatatan tindak lanjut (menyimpan rencana perbaikan ke storage dan otomatis mengubah status laporan menjadi 'Dalam Penanganan')
 def catat_tindak_lanjut(kode, catatan, penanggung_jawab, tanggal_rencana, peran):
     laporan = cari_laporan(kode)
     if laporan is None:
@@ -150,6 +161,7 @@ def catat_tindak_lanjut(kode, catatan, penanggung_jawab, tanggal_rencana, peran)
     return tindak_lanjut
 
 
+#penyelesaian perbaikan (memperbarui tanggal selesai dan foto sesudah pada tindak lanjut terakhir lalu mengubah status ke 'Selesai')
 def selesaikan_tindak_lanjut(kode, tanggal_selesai, foto_sesudah, peran):
     laporan = cari_laporan(kode)
     if laporan is None:
@@ -178,6 +190,7 @@ def selesaikan_tindak_lanjut(kode, tanggal_selesai, foto_sesudah, peran):
     return terbaru
 
 
+#riwayat penanganan (mengambil seluruh daftar catatan tindak lanjut yang terhubung dengan kode laporan tertentu)
 def riwayat_tindak_lanjut(kode):
     laporan = cari_laporan(kode)
     if laporan is None:
@@ -186,6 +199,7 @@ def riwayat_tindak_lanjut(kode):
     return [t for t in semua if t["kode_laporan"] == laporan["kode"]]
 
 
+#sorting & keyword argument (menghitung skor tiap laporan lalu mengurutkannya menurun memakai selection, bubble, atau insertion sort)
 def urutkan_prioritas(daftar=None, metode="selection"):
     daftar = baca_semua_laporan() if daftar is None else daftar
     diberi_skor = [dict(l, skor=hitung_skor_prioritas(l)) for l in daftar]
@@ -196,6 +210,7 @@ def urutkan_prioritas(daftar=None, metode="selection"):
     return algoritma.selection_sort(diberi_skor, "skor", menurun=True)
 
 
+#function lanjutan - *args & **kwargs (menyaring daftar laporan berdasarkan banyak status variadic dan kriteria atribut dinamis)
 def filter_laporan(*status, **kriteria):
     daftar = baca_semua_laporan()
     hasil = daftar
@@ -206,6 +221,7 @@ def filter_laporan(*status, **kriteria):
     return hasil
 
 
+#statistik & rekursi (menghitung total laporan, distribusi status, persentase selesai, dan total pelapor secara rekursif)
 def rekap_laporan():
     daftar = baca_semua_laporan()
     rekap = {s: 0 for s in STATUS_VALID}
@@ -222,10 +238,12 @@ def rekap_laporan():
     }
 
 
+#akses daftar pengguna (mengembalikan daftar akun admin dan petugas yang terdaftar di memori)
 def ambil_pengguna():
     return PENGGUNA_AWAL
 
 
+#autentikasi pengguna (memverifikasi kecocokan username dan password lalu mencatat hasil login ke log aktivitas)
 def login(username, password):
     username = validasi_teks(username, "Username")
     if not isinstance(password, str) or password == "":
@@ -238,6 +256,7 @@ def login(username, password):
     return None
 
 
+#tambah petugas (memvalidasi otorisasi admin dan keunikan ID/username sebelum menambah petugas baru)
 def tambah_pengguna(peran, id_pengguna, nama, username, password):
     if peran != "admin":
         raise ValueError("Hanya admin yang boleh menambah pengguna.")
@@ -256,6 +275,7 @@ def tambah_pengguna(peran, id_pengguna, nama, username, password):
     return baru
 
 
+#hapus petugas (menghapus akun petugas berdasarkan ID sambil melindungi akun admin utama agar tidak terhapus)
 def hapus_pengguna(peran, id_pengguna):
     if peran != "admin":
         raise ValueError("Hanya admin yang boleh menghapus petugas.")
@@ -270,6 +290,7 @@ def hapus_pengguna(peran, id_pengguna):
     raise ValueError("ID petugas tidak ditemukan.")
 
 
+#reset password (memperbarui password pengguna berdasarkan ID setelah memvalidasi otorisasi admin)
 def reset_password_pengguna(peran, id_pengguna, password_baru):
     if peran != "admin":
         raise ValueError("Hanya admin yang boleh mereset password.")

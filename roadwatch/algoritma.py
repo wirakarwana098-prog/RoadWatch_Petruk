@@ -1,3 +1,5 @@
+#modularitas (menyediakan algoritma pencarian, pengurutan manual, dan rekursi untuk pengolahan data laporan)
+#linear search (menelusuri elemen daftar laporan satu per satu secara berurutan hingga kode cocok, mengembalikan indeks atau -1)
 def linear_search_laporan(daftar, kode):
     kode = kode.strip().lower()
     for i in range(len(daftar)):
@@ -6,6 +8,7 @@ def linear_search_laporan(daftar, kode):
     return -1
 
 
+#binary search (membagi rentang indeks daftar yang sudah terurut menjadi dua secara berulang untuk menemukan kode lebih cepat)
 def binary_search_laporan(daftar_terurut, kode):
     kode = kode.strip().lower()
     awal, akhir = 0, len(daftar_terurut) - 1
@@ -21,6 +24,7 @@ def binary_search_laporan(daftar_terurut, kode):
     return -1
 
 
+#selection sort (mencari nilai terbesar/terkecil pada sisa daftar lalu menukarnya ke posisi terurut tanpa mengubah list asli)
 def selection_sort(daftar, kunci, menurun=True):
     data = list(daftar)
     n = len(data)
@@ -34,6 +38,7 @@ def selection_sort(daftar, kunci, menurun=True):
     return data
 
 
+#insertion sort (mengambil elemen satu per satu dan menyisipkannya ke posisi yang tepat pada bagian daftar yang sudah terurut)
 def insertion_sort(daftar, kunci, menurun=False):
     data = list(daftar)
     for i in range(1, len(data)):
@@ -47,6 +52,7 @@ def insertion_sort(daftar, kunci, menurun=False):
     return data
 
 
+#bubble sort (membandingkan pasangan elemen bersebelahan dan menukarnya berulang kali hingga seluruh daftar terurut)
 def bubble_sort(daftar, kunci, menurun=True):
     data = list(daftar)
     n = len(data)
@@ -59,6 +65,7 @@ def bubble_sort(daftar, kunci, menurun=True):
     return data
 
 
+#rekursi agregasi data (menjumlahkan nilai jumlah_pelapor dari setiap laporan secara rekursif hingga mencapai batas akhir daftar)
 def total_pelapor_rekursif(daftar, indeks=0):
     if indeks >= len(daftar):
         return 0

@@ -1,8 +1,10 @@
+#library modul bawaan & eksternal (mengimpor os, datetime, framework web Flask, dan secure_filename untuk keamanan nama file unggahan)
 import os
 from datetime import datetime
 from flask import Flask, jsonify, render_template, request, send_from_directory, session
 from werkzeug.utils import secure_filename
 
+#inisialisasi aplikasi & konfigurasi (membuat instance Flask, mengatur secret key sesi, path direktori, ekstensi foto, dan bobot kerusakan)
 app = Flask(__name__)
 app.secret_key = "roadwatch-lampung-secret-key-2026"
 
@@ -23,6 +25,7 @@ BOBOT_TINGKAT = {
 }
 
 
+#file handling inisialisasi direktori & seed data (membuat folder data/uploads dan mengisi data awal jika file teks belum tersedia)
 def pastikan_direktori_dan_file():
     os.makedirs(DATA_DIR, exist_ok=True)
     os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -43,10 +46,12 @@ def pastikan_direktori_dan_file():
             f.write("RW-0003|Tim Bina Marga Wilayah II|Penambalan aspal hotmix dan perataan bahu jalan|26-11-2026|-|-\n")
 
 
+#validasi separator (mengecek keberadaan karakter '|' pada teks agar format penyimpanan delimiter file tidak rusak)
 def mengandung_pemisah(teks):
     return "|" in str(teks or "")
 
 
+#validasi ekstensi unggahan (memeriksa apakah ekstensi file gambar termasuk dalam daftar ALLOWED_EXTENSIONS)
 def ekstensi_valid(nama_file):
     if "." not in nama_file:
         return False
@@ -54,11 +59,13 @@ def ekstensi_valid(nama_file):
     return eks in ALLOWED_EXTENSIONS
 
 
+#kalkulasi prioritas (menghitung skor urgensi berdasarkan bobot tingkat kerusakan dikali 10 ditambah jumlah pelapor)
 def hitung_skor(tingkat, jumlah_pelapor):
     bobot = BOBOT_TINGKAT.get(str(tingkat).strip().lower(), 1)
     return bobot * 10 + int(jumlah_pelapor)
 
 
+#normalisasi input kategori (menyeragamkan teks tingkat kerusakan menjadi 'Berat', 'Sedang', atau 'Ringan')
 def normalisasi_tingkat(tingkat):
     t = str(tingkat or "").strip().lower()
     if t == "berat":
@@ -70,6 +77,7 @@ def normalisasi_tingkat(tingkat):
     return ""
 
 
+#file handling baca pengguna (memuat seluruh akun admin dan petugas dari pengguna.txt menggunakan with open mode 'r')
 def baca_pengguna():
     pastikan_direktori_dan_file()
     daftar = []
@@ -91,6 +99,7 @@ def baca_pengguna():
     return daftar
 
 
+#file handling simpan pengguna (menulis ulang daftar akun pengguna terbaru ke pengguna.txt menggunakan mode 'w')
 def simpan_pengguna(daftar):
     with open(FILE_PENGGUNA, "w", encoding="utf-8") as f:
         for u in daftar:
@@ -99,6 +108,7 @@ def simpan_pengguna(daftar):
             )
 
 
+#file handling baca laporan (mengurai tiap baris laporan.txt menjadi list of dict sekaligus menghitung ulang skor prioritas)
 def baca_laporan():
     pastikan_direktori_dan_file()
     daftar = []
@@ -126,6 +136,7 @@ def baca_laporan():
     return daftar
 
 
+#file handling simpan laporan (menyimpan seluruh data laporan secara permanen ke laporan.txt berpemisah '|')
 def simpan_laporan(daftar):
     with open(FILE_LAPORAN, "w", encoding="utf-8") as f:
         for l in daftar:
@@ -135,6 +146,7 @@ def simpan_laporan(daftar):
             )
 
 
+#file handling baca tindak lanjut (memuat riwayat penanganan lapangan dari file tindak_lanjut.txt)
 def baca_tindak_lanjut():
     pastikan_direktori_dan_file()
     daftar = []
@@ -156,6 +168,7 @@ def baca_tindak_lanjut():
     return daftar
 
 
+#file handling simpan tindak lanjut (menulis ulang seluruh catatan tindak lanjut ke file tindak_lanjut.txt)
 def simpan_tindak_lanjut(daftar):
     with open(FILE_TINDAK_LANJUT, "w", encoding="utf-8") as f:
         for r in daftar:
@@ -165,14 +178,17 @@ def simpan_tindak_lanjut(daftar):
             )
 
 
+#comparator sorting kunci prioritas (mengembalikan tuple pembanding berdasarkan skor tertinggi, jumlah pelapor, lalu kode)
 def kunci_prioritas(item):
     return (item["skor"], item["jumlah_pelapor"], item["kode"])
 
 
+#comparator sorting kunci pelapor (mengembalikan tuple pembanding berdasarkan jumlah pelapor terbanyak, skor, lalu kode)
 def kunci_pelapor(item):
     return (item["jumlah_pelapor"], item["skor"], item["kode"])
 
 
+#comparator sorting kunci tanggal & error handling (mengurai string tanggal ke objek datetime untuk pengurutan terbaru)
 def kunci_tanggal(item):
     try:
         tgl = datetime.strptime(item["tanggal"], "%d-%m-%Y")
@@ -181,6 +197,7 @@ def kunci_tanggal(item):
     return (tgl, item["skor"], item["kode"])
 
 
+#selection sort (memilih laporan dengan skor prioritas tertinggi pada tiap iterasi dan menukarnya ke posisi depan)
 def selection_sort_prioritas(data):
     arr = list(data)
     n = len(arr)
@@ -193,6 +210,7 @@ def selection_sort_prioritas(data):
     return arr
 
 
+#bubble sort (mengurutkan laporan berdasarkan pelapor terbanyak dengan optimasi flag swapped untuk berhenti lebih awal)
 def bubble_sort_prioritas(data):
     arr = list(data)
     n = len(arr)
@@ -207,6 +225,7 @@ def bubble_sort_prioritas(data):
     return arr
 
 
+#insertion sort tanggal (menyisipkan setiap laporan ke posisi terurut menurun berdasarkan tanggal pelaporan terbaru)
 def insertion_sort_prioritas(data):
     arr = list(data)
     for i in range(1, len(arr)):
@@ -219,6 +238,7 @@ def insertion_sort_prioritas(data):
     return arr
 
 
+#insertion sort kode (mengurutkan laporan menaik berdasarkan kode RW-XXXX sebagai prasyarat algoritma binary search)
 def insertion_sort_kode(data):
     arr = list(data)
     for i in range(1, len(arr)):
@@ -231,6 +251,7 @@ def insertion_sort_kode(data):
     return arr
 
 
+#linear search (menelusuri seluruh daftar laporan secara berurutan untuk mencocokkan target kode laporan)
 def linear_search_kode(data, target_kode):
     target = target_kode.strip().upper()
     for item in data:
@@ -239,6 +260,7 @@ def linear_search_kode(data, target_kode):
     return None
 
 
+#binary search (mencari target kode pada daftar terurut dengan membagi dua ruang pencarian di setiap langkah)
 def binary_search_kode(data_terurut, target_kode):
     target = target_kode.strip().upper()
     low = 0
@@ -255,6 +277,7 @@ def binary_search_kode(data_terurut, target_kode):
     return None
 
 
+#manajemen sesi (mengambil profil pengguna yang sedang login berdasarkan user_id tersimpan di session Flask)
 def pengguna_saat_ini():
     user_id = session.get("user_id")
     if not user_id:
@@ -271,6 +294,7 @@ def pengguna_saat_ini():
     return None
 
 
+#generator ID laporan (mencari nomor urut tertinggi dari kode RW-XXXX lalu menghasilkan kode berikutnya secara otomatis)
 def buat_kode_baru(daftar_laporan):
     max_num = 0
     for l in daftar_laporan:
@@ -284,21 +308,25 @@ def buat_kode_baru(daftar_laporan):
     return f"RW-{max_num + 1:04d}"
 
 
+#routing UI halaman publik (merender template index.html sebagai antarmuka utama pelaporan dan pemantauan warga)
 @app.route("/")
 def halaman_utama():
     return render_template("index.html")
 
 
+#routing UI halaman panel petugas (merender template panel.html untuk dashboard verifikasi petugas dan admin PUPR)
 @app.route("/panel")
 def halaman_panel():
     return render_template("panel.html")
 
 
+#routing media (menyajikan file foto bukti kerusakan dari direktori static/uploads ke browser)
 @app.route("/uploads/<path:filename>")
 def unduh_foto(filename):
     return send_from_directory(UPLOAD_DIR, filename)
 
 
+#API autentikasi cek sesi (mengembalikan status login beserta data pengguna aktif dalam format JSON)
 @app.route("/api/sesi", methods=["GET"])
 def api_sesi():
     user = pengguna_saat_ini()
@@ -307,6 +335,7 @@ def api_sesi():
     return jsonify({"login": False, "pengguna": None})
 
 
+#API autentikasi login (memverifikasi kredensial username dan password lalu menyimpan user_id ke dalam sesi)
 @app.route("/api/login", methods=["POST"])
 def api_login():
     data = request.get_json(silent=True) or {}
@@ -330,12 +359,14 @@ def api_login():
     return jsonify({"sukses": False, "pesan": "Username atau password tidak sesuai."}), 401
 
 
+#API autentikasi logout (menghapus user_id dari session Flask untuk mengakhiri sesi login pengguna)
 @app.route("/api/logout", methods=["POST"])
 def api_logout():
     session.pop("user_id", None)
     return jsonify({"sukses": True})
 
 
+#API statistik agregasi data (menghitung total laporan, rekap per status, persentase selesai, dan total akumulasi pelapor)
 @app.route("/api/statistik", methods=["GET"])
 def api_statistik():
     daftar = baca_laporan()
@@ -365,6 +396,7 @@ def api_statistik():
     })
 
 
+#API laporan filter & sorting dinamis (menyaring laporan berdasarkan status/kecamatan/tingkat lalu mengurutkannya sesuai metode pilihan)
 @app.route("/api/laporan", methods=["GET"])
 def api_daftar_laporan():
     status_filter = request.args.get("status", "").strip()
@@ -393,6 +425,7 @@ def api_daftar_laporan():
     return jsonify({"sukses": True, "laporan": daftar})
 
 
+#API laporan tambah & penggabungan duplikat (memvalidasi form & foto, menggabungkan laporan jalan yang sama, atau menyimpan laporan baru)
 @app.route("/api/laporan", methods=["POST"])
 def api_tambah_laporan():
     jalan = str(request.form.get("jalan", "")).strip()
@@ -464,6 +497,7 @@ def api_tambah_laporan():
     }), 201
 
 
+#API laporan pelacakan kode (mencari detail laporan memakai Linear Search atau Binary Search beserta riwayat tindak lanjutnya)
 @app.route("/api/laporan/<kode>", methods=["GET"])
 def api_detail_laporan(kode):
     pakai_binary = request.args.get("binary", "false").strip().lower() == "true"
@@ -494,6 +528,7 @@ def api_detail_laporan(kode):
     })
 
 
+#API petugas verifikasi laporan (mengubah status laporan 'Baru' menjadi 'Terverifikasi' atau 'Ditolak' setelah validasi sesi)
 @app.route("/api/petugas/verifikasi", methods=["POST"])
 def api_verifikasi_laporan():
     user = pengguna_saat_ini()
@@ -518,6 +553,7 @@ def api_verifikasi_laporan():
     return jsonify({"sukses": True, "laporan": target})
 
 
+#API petugas catat tindak lanjut (menyimpan rencana perbaikan dan mengubah status laporan menjadi 'Dalam Penanganan')
 @app.route("/api/petugas/tindak-lanjut", methods=["POST"])
 def api_catat_tindak_lanjut():
     user = pengguna_saat_ini()
@@ -561,6 +597,7 @@ def api_catat_tindak_lanjut():
     return jsonify({"sukses": True, "pesan": "Tindak lanjut berhasil dicatat."})
 
 
+#API petugas selesaikan laporan (mengunggah foto sesudah perbaikan, memperbarui riwayat, dan mengubah status ke 'Selesai')
 @app.route("/api/petugas/selesai", methods=["POST"])
 def api_tandai_selesai():
     user = pengguna_saat_ini()
@@ -621,6 +658,7 @@ def api_tandai_selesai():
     return jsonify({"sukses": True, "pesan": f"Laporan {target['kode']} berhasil ditandai Selesai."})
 
 
+#API admin daftar pengguna (mengambil seluruh data akun petugas dan admin tanpa menyertakan password)
 @app.route("/api/admin/pengguna", methods=["GET"])
 def api_admin_daftar_pengguna():
     user = pengguna_saat_ini()
@@ -639,6 +677,7 @@ def api_admin_daftar_pengguna():
     return jsonify({"sukses": True, "pengguna": hasil})
 
 
+#API admin tambah petugas (memvalidasi keunikan ID dan username lalu menyimpan akun petugas baru ke pengguna.txt)
 @app.route("/api/admin/pengguna", methods=["POST"])
 def api_admin_tambah_pengguna():
     user = pengguna_saat_ini()
@@ -690,6 +729,7 @@ def api_admin_tambah_pengguna():
     }), 201
 
 
+#API admin hapus petugas (menghapus akun petugas berdasarkan ID sambil melindungi akun yang sedang login dan admin utama)
 @app.route("/api/admin/pengguna/<user_id>", methods=["DELETE"])
 def api_admin_hapus_pengguna(user_id):
     user = pengguna_saat_ini()
@@ -718,6 +758,7 @@ def api_admin_hapus_pengguna(user_id):
     return jsonify({"sukses": True, "pesan": f"Akun petugas {target_id} berhasil dihapus."})
 
 
+#API admin reset password (memperbarui password akun petugas tertentu setelah memvalidasi panjang minimal 6 karakter)
 @app.route("/api/admin/pengguna/<user_id>/reset-password", methods=["POST"])
 def api_admin_reset_password(user_id):
     user = pengguna_saat_ini()
@@ -749,6 +790,7 @@ def api_admin_reset_password(user_id):
     return jsonify({"sukses": True, "pesan": f"Password untuk {target_id} berhasil diperbarui."})
 
 
+#entry point aplikasi (memastikan folder dan file data siap lalu menjalankan server pengembangan Flask pada port 5000)
 if __name__ == "__main__":
     pastikan_direktori_dan_file()
     app.run(debug=True, port=5000)
